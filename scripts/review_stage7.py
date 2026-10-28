@@ -122,7 +122,8 @@ try:
     from src.visualization import plot_equivalence_curve, plot_model_comparison
     import matplotlib
     check("visualization imports OK", True, f"backend={matplotlib.get_backend()}")
-    check("matplotlib using Agg backend", matplotlib.get_backend() == 'agg',
+    check("matplotlib using Agg backend",
+          matplotlib.get_backend().lower() == 'agg',
           matplotlib.get_backend())
 except Exception as e:
     check("visualization imports OK", False, str(e))
