@@ -42,7 +42,7 @@ class AdversarialSimulator:
         return self.feature_names.index(feature_name)
 
     def _get_budget_key(self, feature_name):
-        """Map a feature name to its lie budget key."""
+        """Map a feature name to its lie budget key (height or weight)."""
         if 'height' in feature_name.lower():
             return 'height'
         elif 'weight' in feature_name.lower():
@@ -56,31 +56,31 @@ class AdversarialSimulator:
 
     def explanation_guided_attack(self, x_original, explanation_method='shap'):
         """
-        Use an explanation to determine which feature to change
-        and in which direction to REDUCE the risk score.
+        Use an explanation to determine which gameable feature to change
+        and in which direction to REDUCE the diabetes risk score.
 
         Steps:
         1. Get explanation (SHAP or LIME)
-        2. Find the top gameable feature
+        2. Find the top gameable feature (highest absolute attribution)
         3. Change it in the direction that reduces risk
-        4. Constrain the change by the lie budget
+        4. Constrain the change by the realistic lie budget
 
         Returns
         -------
-        dict with: new_x, original_score, new_score, score_reduction,
-                   changed_feature, change_amount, method
+        dict: new_x, original_score, new_score, score_reduction,
+              changed_feature, change_amount, method
         """
-        original_score = self.model.predict_proba(
+        original_score = float(self.model.predict_proba(
             x_original.reshape(1, -1)
-        )[0]
+        )[0])
 
-        # Get explanation
+        # Get feature attributions
         if explanation_method == 'shap':
             attributions = self.explainer.get_shap_explanation(x_original)
         else:
             attributions = self.explainer.get_lime_explanation(x_original)
 
-        # Find top gameable feature
+        # Find the most important gameable feature
         top_feat, top_val = self.explainer.get_top_gameable_feature(
             attributions, self.gameable_features
         )
@@ -92,7 +92,7 @@ class AdversarialSimulator:
                 'new_score': original_score,
                 'score_reduction': 0.0,
                 'changed_feature': None,
-                'change_amount': 0,
+                'change_amount': 0.0,
                 'method': explanation_method,
             }
 
@@ -100,15 +100,15 @@ class AdversarialSimulator:
         budget_key = self._get_budget_key(top_feat)
         max_change = self.lie_budget[budget_key]['max_lie']
 
-        # Direction: if SHAP positive → feature increases risk → decrease it
+        # Direction: positive attribution → feature pushes score UP → decrease it
+        top_val = float(top_val)
         direction = -1 if top_val > 0 else 1
         change = direction * max_change
 
-        # Apply change
         new_x = x_original.copy()
         new_x[feat_idx] += change
 
-        new_score = self.model.predict_proba(new_x.reshape(1, -1))[0]
+        new_score = float(self.model.predict_proba(new_x.reshape(1, -1))[0])
 
         return {
             'new_x': new_x,
@@ -121,77 +121,80 @@ class AdversarialSimulator:
         }
 
     # =========================================================
-    # STRATEGY 2: BLIND TRIAL-AND-ERROR
+    # STRATEGY 2: BLIND TRIAL-AND-ERROR (statistically correct)
     # =========================================================
 
-    def blind_attack(self, x_original, n_attempts):
+    def blind_attack_multi_n(self, x_original, blind_attempts_list):
         """
-        Try random perturbations without any explanation.
+        Run ONE continuous blind simulation up to max(blind_attempts_list),
+        tracking the best score found SO FAR at each N milestone.
 
-        The adversary gets n_attempts queries to the model.
-        Each attempt randomly selects a gameable feature and
-        randomly changes it within the lie budget.
-        The adversary keeps the BEST (lowest) score found.
+        WHY THIS IS CORRECT:
+        The adversary accumulates attempts sequentially and always keeps the
+        best result seen so far. At N=10 they have also seen N=1..9 results.
+        Running separate independent simulations per N would OVER-estimate
+        blind performance (each fresh run gets a new lucky random draw),
+        making N* (equivalence) artificially inflated and wrong.
+
+        Parameters
+        ----------
+        x_original : np.array — patient feature vector
+        blind_attempts_list : list of int — N milestones to record at
 
         Returns
         -------
-        dict with: best_x, original_score, best_score, score_reduction,
-                   all_scores, n_attempts
+        dict: {n: score_reduction} for each n in blind_attempts_list
         """
-        original_score = self.model.predict_proba(
+        original_score = float(self.model.predict_proba(
             x_original.reshape(1, -1)
-        )[0]
+        )[0])
+
+        max_n = max(blind_attempts_list)
+        milestones = set(blind_attempts_list)
 
         best_score = original_score
-        best_x = x_original.copy()
-        all_scores = [original_score]
+        reductions_at_n = {}
 
-        for _ in range(n_attempts):
-            # Randomly select a gameable feature
+        for attempt in range(1, max_n + 1):
+            # Random feature and perturbation within lie budget
             feat = self.rng.choice(self.gameable_features)
             feat_idx = self.get_feature_index(feat)
             budget_key = self._get_budget_key(feat)
             max_change = self.lie_budget[budget_key]['max_lie']
 
-            # Random change within lie budget
             change = self.rng.uniform(-max_change, max_change)
-
             trial_x = x_original.copy()
             trial_x[feat_idx] += change
 
-            trial_score = self.model.predict_proba(
+            trial_score = float(self.model.predict_proba(
                 trial_x.reshape(1, -1)
-            )[0]
+            )[0])
 
-            all_scores.append(trial_score)
-
+            # Keep best score seen so far (adversary is rational)
             if trial_score < best_score:
                 best_score = trial_score
-                best_x = trial_x.copy()
 
-        return {
-            'best_x': best_x,
-            'original_score': original_score,
-            'best_score': best_score,
-            'score_reduction': original_score - best_score,
-            'all_scores': all_scores,
-            'n_attempts': n_attempts,
-        }
+            # Record the best reduction achieved up to this N
+            if attempt in milestones:
+                reductions_at_n[attempt] = original_score - best_score
+
+        return reductions_at_n
 
     # =========================================================
-    # MAIN EXPERIMENT: COMPARE STRATEGIES
+    # MAIN EXPERIMENT RUNNER
     # =========================================================
 
     def run_comparison(self, X_test, n_patients=None,
                        blind_attempts_list=None,
                        explanation_method='shap'):
         """
-        Run the full comparison experiment.
+        Run the full comparison experiment for each patient.
 
-        For each patient in X_test:
-        1. Run explanation-guided attack (1 explanation)
-        2. Run blind attack with N attempts for each N in the list
-        3. Record score reductions for both
+        For each patient:
+        1. Run explanation-guided attack (1 explanation call)
+        2. Run ONE continuous blind simulation, recording best
+           score reduction at each N milestone
+        3. Record all results for equivalence metric computation
 
         Returns
         -------
@@ -207,27 +210,22 @@ class AdversarialSimulator:
 
         results = []
 
-        for i in tqdm(range(n_patients), desc=f"Adversarial sim ({explanation_method})"):
+        for i in tqdm(range(n_patients),
+                      desc=f"Adversarial sim ({explanation_method})"):
             x = X_test[i]
 
-            # Strategy 1: Explanation-guided
+            # Strategy 1: 1 explanation → best gameable feature change
             exp_result = self.explanation_guided_attack(x, explanation_method)
 
-            # Strategy 2: Blind with varying attempts
-            blind_results = {}
-            for n in blind_attempts_list:
-                blind_result = self.blind_attack(x, n_attempts=n)
-                blind_results[n] = blind_result
+            # Strategy 2: continuous blind up to max_N, track best at each N
+            blind_reductions = self.blind_attack_multi_n(x, blind_attempts_list)
 
             results.append({
                 'patient_idx': i,
                 'original_score': exp_result['original_score'],
                 'explanation_reduction': exp_result['score_reduction'],
                 'explanation_feature': exp_result['changed_feature'],
-                'blind_reductions': {
-                    n: blind_results[n]['score_reduction']
-                    for n in blind_attempts_list
-                },
+                'blind_reductions': blind_reductions,
             })
 
         return results

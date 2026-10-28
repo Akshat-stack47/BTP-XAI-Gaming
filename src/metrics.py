@@ -29,27 +29,46 @@ def compute_equivalence(results, blind_attempts_list):
         r_exp = result['explanation_reduction']
 
         # Build the curve: N → R_blind(N)
+        # blind_attack_multi_n guarantees non-decreasing reductions (best-so-far)
         ns = sorted(result['blind_reductions'].keys())
         rs = [result['blind_reductions'][n] for n in ns]
+
+        # Enforce monotonicity explicitly (cumulative max)
+        rs_mono = []
+        running_max = 0.0
+        for r in rs:
+            running_max = max(running_max, r)
+            rs_mono.append(running_max)
 
         if r_exp <= 0:
             equivalences.append(0)
             continue
 
-        if r_exp <= min(rs):
+        if r_exp <= rs_mono[0]:
+            # Explanation does no better than 1 blind attempt
             equivalences.append(0)
             continue
 
-        if r_exp >= max(rs):
-            equivalences.append(max(ns) + 1)  # Censored
+        if r_exp >= rs_mono[-1]:
+            # Explanation better than max blind attempts → censored at max_N+1
+            equivalences.append(float(max(ns) + 1))
             continue
 
-        # Interpolate to find crossing point
+        # Interpolate: rs_mono is strictly non-decreasing, deduplicate for interp
         try:
-            f = interpolate.interp1d(rs, ns, kind='linear',
-                                      fill_value='extrapolate')
+            # Build unique (r, n) pairs — keep first occurrence per r value
+            seen_r = {}
+            for r_val, n_val in zip(rs_mono, ns):
+                if r_val not in seen_r:
+                    seen_r[r_val] = n_val
+            rs_uniq = sorted(seen_r.keys())
+            ns_uniq = [seen_r[r] for r in rs_uniq]
+
+            f = interpolate.interp1d(rs_uniq, ns_uniq, kind='linear',
+                                     bounds_error=False,
+                                     fill_value=(ns_uniq[0], ns_uniq[-1]))
             n_star = float(f(r_exp))
-            equivalences.append(max(0, n_star))
+            equivalences.append(max(0.0, n_star))
         except Exception:
             equivalences.append(np.nan)
 

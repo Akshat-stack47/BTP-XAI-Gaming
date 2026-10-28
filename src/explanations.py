@@ -127,18 +127,29 @@ class ExplanationGenerator:
         """
         Find the most influential feature that the adversary CAN change.
 
+        SHAP returns exact feature names as keys.
+        LIME returns condition strings like:
+          'self_height_cm > 1.23'
+          '0.5 < self_weight_kg <= 2.1'
+          'self_weight_kg <= 0.8'
+        We match by checking if any gameable feature name appears
+        as a substring of the attribution key (handles all LIME formats).
+
         Parameters
         ----------
-        attributions : dict of {feature: importance}
-        gameable_features : list of feature names that can be manipulated
+        attributions : dict of {feature_or_condition: importance}
+        gameable_features : list of exact feature names that can be changed
 
         Returns
         -------
         (feature_name, attribution_value) or (None, None)
         """
-        for feat, val in attributions.items():
-            # LIME returns feature conditions like "feature > X", extract name
-            feat_clean = feat.split(' ')[0] if ' ' in feat else feat
-            if feat_clean in gameable_features:
-                return feat_clean, val
+        for attr_key, val in attributions.items():
+            # Direct match (SHAP exact names)
+            if attr_key in gameable_features:
+                return attr_key, val
+            # Substring match (LIME condition strings)
+            for feat in gameable_features:
+                if feat in str(attr_key):
+                    return feat, val
         return None, None

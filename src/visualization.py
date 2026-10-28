@@ -4,6 +4,8 @@ All plots use publication-quality settings.
 """
 import os
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')   # Non-interactive backend — no tkinter, safe for subprocesses
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -51,7 +53,7 @@ def plot_equivalence_curve(results, blind_attempts_list, title='', save_path=Non
         blind_stds.append(np.std(reductions))
 
     # Plot blind curve
-    ax.plot(blind_attempts_list, blind_means, 'b-o', linewidth=2,
+    ax.plot(blind_attempts_list, blind_means, 'o-', linewidth=2,
             markersize=6, label='Blind Trial-and-Error', zorder=3,
             color=COLORS['blind'])
     ax.fill_between(blind_attempts_list,
