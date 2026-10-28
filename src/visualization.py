@@ -103,7 +103,14 @@ def plot_score_reductions(results, save_path=None):
             data_to_plot.append([r['blind_reductions'][n] for r in results])
             labels.append(f'Blind (N={n})')
 
-    bp = ax.boxplot(data_to_plot, labels=labels, patch_artist=True)
+    import matplotlib
+    mpl_ver = tuple(int(x) for x in matplotlib.__version__.split('.')[:2])
+    bp_kwargs = dict(patch_artist=True)
+    if mpl_ver >= (3, 9):
+        bp_kwargs['tick_labels'] = labels
+    else:
+        bp_kwargs['labels'] = labels
+    bp = ax.boxplot(data_to_plot, **bp_kwargs)
     colors = [COLORS['explanation']] + [COLORS['blind']] * (len(labels) - 1)
     for patch, color in zip(bp['boxes'], colors):
         patch.set_facecolor(color)
@@ -308,11 +315,17 @@ def fig3_score_reduction_boxplot(all_results, save_path=None):
         labels.append(f'Blind\n(N={n})')
         box_colors.append(COLORS['blind'])
 
-    fig, ax = plt.subplots(figsize=(12, 6))
-    bp = ax.boxplot(data_all, labels=labels, patch_artist=True,
-                    medianprops={'color': 'black', 'linewidth': 2},
-                    whiskerprops={'linewidth': 1.5},
-                    capprops={'linewidth': 1.5})
+    import matplotlib as _mpl
+    _ver = tuple(int(x) for x in _mpl.__version__.split('.')[:2])
+    _bp_kw = dict(patch_artist=True,
+                  medianprops={'color': 'black', 'linewidth': 2},
+                  whiskerprops={'linewidth': 1.5},
+                  capprops={'linewidth': 1.5})
+    if _ver >= (3, 9):
+        _bp_kw['tick_labels'] = labels
+    else:
+        _bp_kw['labels'] = labels
+    bp = ax.boxplot(data_all, **_bp_kw)
     for patch, color in zip(bp['boxes'], box_colors):
         patch.set_facecolor(color)
         patch.set_alpha(0.75)
