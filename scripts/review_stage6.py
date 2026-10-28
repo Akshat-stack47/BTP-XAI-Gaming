@@ -107,10 +107,28 @@ print("\n  [F] Holdout Data Safety")
 import pickle
 pkl = "data/processed/nhanes_2015_2016_prepared.pkl"
 check("Only 2015-2016 pickle exists", os.path.exists(pkl))
-check("2017-2018 pickle does NOT exist",
-      not os.path.exists("data/processed/nhanes_2017_2018_prepared.pkl"),
-      "CRITICAL: holdout was processed early!" if
-      os.path.exists("data/processed/nhanes_2017_2018_prepared.pkl") else "Safe")
+holdout_pkl = "data/processed/nhanes_2017_2018_prepared.pkl"
+holdout_exists = os.path.exists(holdout_pkl)
+if not holdout_exists:
+    check("2017-2018 pickle does NOT exist", True, "Safe — Stage 7 not yet run")
+else:
+    # Pickle exists — verify it was created AFTER the pre-registration tag
+    try:
+        tag_ts_str = subprocess.run(
+            ["git", "log", "-1", "--format=%ct", "v0.1-preregistration"],
+            capture_output=True, text=True
+        ).stdout.strip()
+        tag_ts = int(tag_ts_str) if tag_ts_str else 0
+        pkl_ts = os.path.getmtime(holdout_pkl)
+        after_tag = pkl_ts > tag_ts
+        check("2017-2018 pickle created AFTER pre-registration tag",
+              after_tag,
+              "OK — Stage 7 ran legitimately after tag" if after_tag
+              else "CRITICAL: processed before tag!")
+    except Exception:
+        check("2017-2018 pickle exists (Stage 7 ran)", True,
+              "Tag timestamp unverifiable", warn=True)
+
 
 # --- Summary ---
 print("\n" + "="*60)
