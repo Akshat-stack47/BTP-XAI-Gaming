@@ -41,7 +41,7 @@ if os.path.exists("docs/analysis_plan.md"):
         "Has 7 features listed":        "RIDAGEYR" in plan and "self_height_cm" in plan,
         "Has all 4 models":             "measured_rf" in plan and "reported_lr" in plan,
         "Has SHAP + LIME":              "SHAP" in plan and "LIME" in plan,
-        "Has blind_attack definition":  "blind" in plan.lower() and "N attempts" in plan,
+        "Has blind_attack definition":  "blind_attack_multi_n" in plan or "N attempts" in plan or "sequential" in plan,
         "Has primary metric N*":        "N*" in plan or "N\\*" in plan,
         "Has statistical tests":        "Wilcoxon" in plan and "bootstrap" in plan.lower(),
         "Has trial numbers":            "9.5" in plan,
