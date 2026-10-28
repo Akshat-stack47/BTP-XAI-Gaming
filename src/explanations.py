@@ -53,21 +53,50 @@ class ExplanationGenerator:
         -------
         dict: {feature_name: shap_value} sorted by absolute value (descending)
         """
-        if self.model.model_type == 'rf':
-            sv = self.shap_explainer.shap_values(x_single.reshape(1, -1))
-            # For binary classification, use class 1 (diabetes)
-            values = sv[1][0] if isinstance(sv, list) else sv[0]
-        else:
-            if self.model.scaler:
-                x_scaled = self.model.scaler.transform(x_single.reshape(1, -1))
-            else:
-                x_scaled = x_single.reshape(1, -1)
-            values = self.shap_explainer.shap_values(x_scaled)[0]
+        import numpy as np
 
-        attributions = dict(zip(self.feature_names, values))
+        x_2d = x_single.reshape(1, -1)
+
+        if self.model.model_type == 'rf':
+            sv = self.shap_explainer.shap_values(x_2d)
+
+            # shap >= 0.41 may return an Explanation object
+            if hasattr(sv, 'values'):
+                sv = sv.values
+
+            # sv can be: list[array], 3-D array (n, feats, classes), or 2-D
+            if isinstance(sv, list):
+                # list of [class0_array, class1_array]
+                vals = np.array(sv[1]).flatten()
+            elif isinstance(sv, np.ndarray):
+                if sv.ndim == 3:
+                    # shape (n_samples, n_features, n_classes) — take class 1
+                    vals = sv[0, :, 1]
+                elif sv.ndim == 2:
+                    vals = sv[0]
+                else:
+                    vals = sv.flatten()
+            else:
+                vals = np.array(sv).flatten()
+
+        else:  # Logistic Regression
+            if self.model.scaler:
+                x_scaled = self.model.scaler.transform(x_2d)
+            else:
+                x_scaled = x_2d
+            sv = self.shap_explainer.shap_values(x_scaled)
+            if hasattr(sv, 'values'):
+                sv = sv.values
+            if isinstance(sv, np.ndarray):
+                vals = sv[0] if sv.ndim == 2 else sv.flatten()
+            else:
+                vals = np.array(sv).flatten()
+
+        vals = np.array(vals, dtype=float).flatten()
+        attributions = dict(zip(self.feature_names, vals))
         attributions = dict(sorted(
             attributions.items(),
-            key=lambda x: abs(x[1]),
+            key=lambda item: abs(float(item[1])),
             reverse=True
         ))
         return attributions

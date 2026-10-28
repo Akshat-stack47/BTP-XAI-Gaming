@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Download relevant NHANES data files for both survey rounds.
 Usage: python scripts/download_nhanes.py
@@ -6,9 +7,11 @@ import os
 import sys
 import urllib.request
 
-# Base URLs for NHANES data
-BASE_2015 = "https://wwwn.cdc.gov/Nchs/Nhanes/2015-2016/"
-BASE_2017 = "https://wwwn.cdc.gov/Nchs/Nhanes/2017-2018/"
+# Base URLs for NHANES data (updated CDC URL structure)
+BASE_2015 = "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2015/DataFiles/"
+BASE_2017 = "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/"
+
+MIN_VALID_SIZE = 50 * 1024   # Anything < 50 KB is an HTML error page, not real XPT
 
 # Files to download: (filename, description, cycle_suffix)
 FILES = [
@@ -60,9 +63,14 @@ def download_nhanes_files(output_base=None):
         filepath = os.path.join(subdir, filename)
 
         if os.path.exists(filepath):
-            print(f"  [SKIP] {description} — already exists")
-            skipped += 1
-            continue
+            size = os.path.getsize(filepath)
+            if size > MIN_VALID_SIZE:
+                print(f"  [SKIP] {description} — already exists ({size//1024} KB)")
+                skipped += 1
+                continue
+            else:
+                print(f"  [REDOWNLOAD] {description} — existing file too small ({size} bytes), re-fetching")
+                os.remove(filepath)
 
         url = base_url + filename
         print(f"  [DOWNLOAD] {description}")
@@ -70,10 +78,10 @@ def download_nhanes_files(output_base=None):
         try:
             urllib.request.urlretrieve(url, filepath)
             size_mb = os.path.getsize(filepath) / (1024 * 1024)
-            print(f"    → Saved ({size_mb:.1f} MB)")
+            print(f"    >> Saved ({size_mb:.1f} MB)")
             success += 1
         except Exception as e:
-            print(f"    → ERROR: {e}")
+            print(f"    >> ERROR: {e}")
             failed += 1
 
     print(f"\nDone: {success} downloaded, {skipped} skipped, {failed} failed")
