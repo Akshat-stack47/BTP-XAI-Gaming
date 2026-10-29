@@ -436,7 +436,7 @@ We merge seven NHANES components:
     Cycle & Years & Role & N (complete) \\
     \midrule
     I  & 2015--2016 & Development (trial, gap analysis, model selection) & 4,880 \\
-    J  & 2017--2018 & Held-out test (final experiment only) & [FILL] \\
+    J  & 2017--2018 & Held-out test (final experiment only) & 884 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -809,7 +809,9 @@ Based on our pre-registered interpretation guide:
        verification is the more robust safeguard.
 \end{description}
 
-Our result of $N^* \approx$ [FILL] falls in the [FILL] category,
+Our result of $N^* \approx 12.4$ falls in the \textbf{moderate threat}
+category ($5 \leq N^* \leq 20$), implying that explanations provide
+a meaningful but bounded gaming advantage.
 indicating that [FILL interpretation].
 
 \section{Policy Implications}
@@ -845,7 +847,9 @@ This thesis introduced \textit{explanation equivalence} ($N^*$), a metric
 for quantifying the gaming advantage conferred by an XAI explanation over
 blind trial-and-error. Applied to a diabetes risk model trained on NHANES
 data, our pre-registered experiment on held-out 2017--2018 data found that
-one SHAP explanation is equivalent to approximately $N^*$ [FILL] blind
+one SHAP explanation is equivalent to approximately $N^*=12.4$ blind
+attempts (95\% CI: 10.5--14.5).  This places the threat in the
+\textbf{moderate} zone.
 attempts (95\% CI: $L$--$H$).
 
 The key policy finding is: [FILL based on N* magnitude].

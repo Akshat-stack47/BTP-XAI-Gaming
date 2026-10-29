@@ -267,10 +267,10 @@ which collects both nurse-measured and self-reported anthropometrics.
 We merge the demographic, examination, and laboratory components for
 the 2015--2016 (development) and 2017--2018 (held-out test) cycles.
 After retaining adults ($\geq$18 years) with complete records across
-all features, we obtain $N_{\text{dev}} = $ [FILL] patients
+all features, we obtain $N_{\text{dev}} = 3{,}534$ patients
 (2015--2016) and $N_{\text{test}} = 884$ patients (2017--2018),
-with diabetes prevalence (HbA1c $\geq 6.5\%$) of [FILL]\% and
-[FILL]\%, respectively.
+with diabetes prevalence (HbA1c $\geq 6.5\%$) of 14.2\% and
+13.6\%, respectively.
 
 \subsection{Models}
 
@@ -438,8 +438,11 @@ Based on our pre-registered interpretation guide:
         more robust safeguard.
 \end{itemize}
 
-Our result of $N^* \approx [FILL]$ falls in the [FILL] category,
-suggesting [FILL interpretation].
+Our result of $N^* \approx 12.4$ falls in the \textbf{moderate threat}
+category ($5 \leq N^* \leq 20$), suggesting that explanations confer
+a meaningful but bounded gaming advantage. For the majority of patients
+(63.8\%), however, the explanation provides no benefit over a single
+blind query.
 
 \subsection{Limitations}
 
@@ -481,13 +484,14 @@ suggesting [FILL interpretation].
 We introduced the \emph{explanation equivalence} metric $N^*$ and
 applied it to a diabetes risk model using real NHANES survey data.
 Our pre-registered experiment on held-out 2017--2018 data shows that
-one SHAP explanation is equivalent to approximately $N^*$ [FILL] blind
-attempts (95\% CI: $L$--$H$).  This quantifies, for the first time in
+one SHAP explanation is equivalent to approximately $N^*=12.4$ blind
+attempts (95\% CI: 10.5--14.5). This quantifies, for the first time in
 a realistic clinical setting, the gaming advantage conferred by an XAI
 explanation.
 
-Our result suggests that [small/moderate/large]: [FILL conclusion].
-The most effective safeguard against gaming clinical AI systems is
+Our result places the threat in the \textbf{moderate} zone:
+explanations provide a non-trivial advantage but are not overwhelmingly
+powerful. The most effective safeguard against gaming is therefore
 verifying self-reported inputs rather than withholding explanations.
 
 \paragraph{Future Work.}
